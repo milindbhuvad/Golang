@@ -1,0 +1,111 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+
+	"github.com/gorilla/mux"
+)
+
+// Struct to hold data
+type Person struct {
+	ID        string `json:"id"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+	Age       int    `json:"age"`
+}
+
+// In-memory data storage
+var people []Person
+
+func main() {
+	// Initialize some dummy data
+	people = append(people, Person{ID: "1", FirstName: "John", LastName: "Doe", Age: 30})
+	people = append(people, Person{ID: "2", FirstName: "Jane", LastName: "Doe", Age: 25})
+
+	// Initialize the router
+	r := mux.NewRouter()
+
+	// Define routes
+	r.HandleFunc("/people", getPeople).Methods("GET")
+	r.HandleFunc("/people/{id}", getPerson).Methods("GET")
+	r.HandleFunc("/people", createPerson).Methods("POST")
+	r.HandleFunc("/people/{id}", updatePerson).Methods("PUT")
+	r.HandleFunc("/people/{id}", deletePerson).Methods("DELETE")
+
+	// Start the server
+	fmt.Println("Server started at :8080")
+	log.Fatal(http.ListenAndServe(":8080", r))
+}
+
+// Function to get all people
+func getPeople(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(people)
+}
+
+// Function to get a single person by ID
+func getPerson(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	for _, person := range people {
+		if person.ID == params["id"] {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(person)
+			return
+		}
+	}
+	http.Error(w, "Person not found", http.StatusNotFound)
+}
+
+// Function to create a new person
+func createPerson(w http.ResponseWriter, r *http.Request) {
+	var person Person
+	err := json.NewDecoder(r.Body).Decode(&person)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	people = append(people, person)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(person)
+}
+
+// Function to update an existing person by ID
+func updatePerson(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	var updatedPerson Person
+	err := json.NewDecoder(r.Body).Decode(&updatedPerson)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	for index, person := range people {
+		if person.ID == params["id"] {
+			people[index] = updatedPerson
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(updatedPerson)
+			return
+		}
+	}
+
+	http.Error(w, "Person not found", http.StatusNotFound)
+}
+
+// Function to delete a person by ID
+func deletePerson(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	for index, person := range people {
+		if person.ID == params["id"] {
+			people = append(people[:index], people[index+1:]...)
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(people)
+			return
+		}
+	}
+
+	http.Error(w, "Person not found", http.StatusNotFound)
+}
